@@ -1,0 +1,50 @@
+import { z } from "zod";
+import type { ChainSpec, FamilyBinding } from "../contracts/index.js";
+import { UsageError } from "../../../../domain/errors/index.js";
+import { normalizeTypedData } from "../../../../domain/typed-data/index.js";
+import type { TypedDataService } from "../../../../application/use-cases/typed-data-service.js";
+import { TextFormatters } from "../render/index.js";
+
+const typedDataFields = z.object({
+  typedData: z
+    .string()
+    .min(1)
+    .describe(`EIP-712/TIP-712 JSON: {"domain":…,"types":…,"primaryType"?:…,"message":…}`),
+});
+
+export const typedDataSignSpec: ChainSpec = {
+  path: ["typed-data", "sign"],
+  network: "optional",
+  wallet: "optional",
+  auth: "required",
+  broadcasts: false,
+  capability: "typedData.sign",
+  summary: "Sign EIP-712 / TIP-712 structured data",
+  description:
+    "Sign an EIP-712 / TIP-712 typed-data payload.\n" +
+    "`EIP712Domain` in `types` is ignored and `value` is accepted for `message`; address values\n" +
+    "are interpreted by the selected chain family's signing strategy.",
+  baseFields: typedDataFields,
+  examples: [
+    {
+      cmd: `wallet-cli typed-data sign --typed-data '{"domain":{...},"types":{...},"message":{...}}' --network nile`,
+    },
+    {
+      cmd: `wallet-cli typed-data sign --typed-data '{"domain":{...},"types":{...},"message":{...}}' --network sepolia`,
+    },
+  ],
+  formatText: TextFormatters.typedDataSign,
+};
+
+export const typedDataSignBinding = (service: TypedDataService): FamilyBinding => ({
+  run: async (ctx, net, input) => {
+    let raw: unknown;
+    try {
+      raw = JSON.parse(input.typedData);
+    } catch {
+      throw new UsageError("invalid_value", "typed data must be JSON");
+    }
+    const payload = normalizeTypedData(raw);
+    return service.sign(ctx, net.family, ctx.activeAccount, payload);
+  },
+});

@@ -1,14 +1,30 @@
+# Per-implementation ignores live in java/.gitignore and ts/.gitignore.
+# Only repo-wide patterns belong here.
+
+# OS / editor / IDE
 .DS_Store
-build
-out
 .idea
-.gradle
+.vscode/
+# Eclipse JDT / VS Code Java language server output
+/bin/
+
+# Tooling
 node_modules
-src/main/genjs/api
-src/main/genjs/core
-src/genjs
-src/gen
 tools
-src/main/resources/static/js/tronjs/tron-protoc.js
-logs
-FileTest
+graphify-out/
+
+# Claude
+.claude/
+.claude/settings.local.json
+
+.private/
+
+# Scoped registry credentials for the private @sun-sdk packages; local-only until the SDK
+# is published to public npm (see ts/docs/superpowers/specs, D6).
+ts/.npmrc
+
+# Codex
+.codex/
+
+# MCP
+.mcp.json

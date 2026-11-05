@@ -1,0 +1,97 @@
+name: TypeScript CI
+
+on:
+  pull_request:
+    branches:
+      - "**"
+  # Topic branches are covered by the pull_request trigger above; pushing to one would otherwise
+  # start a second, identical run (a different concurrency key, so neither cancels the other).
+  push:
+    branches:
+      - develop
+      - master
+      - "release_*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ts-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - "22"
+          - "24"
+          - "26"
+
+    defaults:
+      run:
+        working-directory: ts
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          # The runner image can lag behind the security releases that `engines` requires.
+          check-latest: true
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+
+      # The SDK was resolved from a registry on a private network until 2026-09-28. A runner cannot
+      # reach one, and npm's own message for that reads as a proxy problem, which sent the last
+      # reader after the wrong thing entirely. This keeps the invariant checkable rather than
+      # rediscoverable.
+      - name: Check every dependency resolves from the public registry
+        run: |
+          offenders=$(node -e '
+            const lock = require("./package-lock.json");
+            const bad = Object.entries(lock.packages ?? {})
+              .filter(([, v]) => v.resolved && !v.resolved.startsWith("https://registry.npmjs.org/"))
+              .map(([k, v]) => `${k} -> ${v.resolved}`);
+            process.stdout.write(bad.join("\n"));
+          ')
+          if [ -n "$offenders" ]; then
+            echo "::error::These packages do not resolve from the public npm registry:"
+            echo "$offenders"
+            echo "::error::A GitHub-hosted runner cannot reach a private registry, so 'npm ci' will time out."
+            echo "::error::This is not a network fault and not a proxy problem."
+            exit 1
+          fi
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Check architecture boundaries
+        run: npm run depcruise
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build npm bundle
+        run: npm run build
+
+      - name: Verify independently installed npm package
+        run: npm run verify:package

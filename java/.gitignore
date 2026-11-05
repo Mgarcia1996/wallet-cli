@@ -1,0 +1,21 @@
+# Build output
+build
+out
+bin
+.gradle
+logs
+FileTest
+
+# Generated sources
+src/gen
+src/genjs
+src/main/genjs/api
+src/main/genjs/core
+src/main/resources/static/js/tronjs/tron-protoc.js
+
+# Wallet keystore files created at runtime
+Wallet/
+Mnemonic/
+wallet_data/
+
+docs/superpowers

@@ -1,0 +1,82 @@
+# wallet-cli create
+
+Create a new HD wallet (BIP39 seed).
+
+## Synopsis
+
+```
+wallet-cli create [options]
+```
+
+## Description
+
+Generates a new BIP39 seed, derives account #0, encrypts everything under your master password, and stores it locally. The mnemonic is **not printed** — the seed is encrypted at rest; run [`backup`](backup.md) to export the recovery phrase to a `0600` file. Further accounts can be derived from the same seed later with [`derive`](derive.md).
+
+Requires the **master password**: pass `--password-stdin` for non-interactive use, or enter it at the TTY prompt. The password must be at least 8 characters and include an uppercase letter, a lowercase letter, a digit, and a special character (`!@#$%^&*()-_=+[]{};:,.?`); a weaker one fails with `weak_password` (exit 2).
+
+## Options
+
+| Option | Description |
+|---|---|
+| `--label <string>` | Human-friendly unique account label, 1–64 chars; omit to auto-generate |
+| `--password-stdin` | Read the master password from stdin (fd 0); only one `*-stdin` flag can consume stdin per run |
+
+Plus the [global options](index.md#global-options-every-command).
+
+## Examples
+
+In the examples, `$PW` is your master password (from an environment variable, password manager, etc.), fed on stdin via `--password-stdin`.
+
+Interactive — prompts for the master password twice, then shows the new account:
+
+```bash
+wallet-cli create --label main
+```
+
+```console
+? Set master password (hidden):
+? Confirm master password:
+✅ Created wallet "main"
+  Account ID    wlt_kwyjcwdh.0
+  Type          HD
+  TRON address  TEKbsrcsL74XyNWH6ju9zfjGDNok78dtTa
+  EVM address   0xeb0a0D15e3B8f6E2FC4bc011Eb6644f1ce3E4fa2
+  Active        yes
+
+⚠️ Recovery phrase is encrypted locally and was not printed.
+⚠️ Run `backup` soon and store the file offline.
+```
+
+Non-interactive, with the password piped from stdin:
+
+```bash
+printf '%s' "$PW" | wallet-cli create --label main --password-stdin -o json
+```
+
+```json
+{"schema":"wallet-cli.result.v1","success":true,"command":"create","data":{"status":"created","accountId":"wlt_kwyjcwdh.0","label":"main","type":"seed","index":0,"active":true,"addresses":{"tron":"TEKbsrcsL74XyNWH6ju9zfjGDNok78dtTa","evm":"0xeb0a0D15e3B8f6E2FC4bc011Eb6644f1ce3E4fa2"},"seedId":"wlt_kwyjcwdh","derivationPath":{"tron":"m/44'/195'/0'/0/0","evm":"m/44'/60'/0'/0/0"}},"meta":{"durationMs":956,"warnings":[]}}
+```
+
+## Output
+
+`data` describes the created account (local command — no `chain` block). No mnemonic field is ever returned.
+
+| Field            | Type    | Meaning                                                                                                                       |
+| ---------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `status`         | string  | `"created"`                                                                                                                   |
+| `accountId`      | string  | Stable id `<seedId>.<index>`                                                                                                  |
+| `label`          | string  | Account label                                                                                                                 |
+| `type`           | string  | `"seed"` (HD-derived)                                                                                                         |
+| `index`          | number  | HD derivation index (0 for the first account)                                                                                 |
+| `active`         | boolean | Whether it became the active account                                                                                          |
+| `addresses`      | object  | One address per family the account can produce: `tron` (base58) and `evm` (`0x`, EIP-55 checksummed)                          |
+| `derivationPath` | object  | The BIP44 path each address came from. `create` always makes index 0: `{"tron":"m/44'/195'/0'/0/0","evm":"m/44'/60'/0'/0/0"}` |
+| `seedId`         | string  | Owning seed wallet id                                                                                                         |
+
+## Exit status
+
+`0` created · `1` execution failure · `2` usage error (e.g. label already taken / invalid, `weak_password`). See [machine-interface](../machine-interface.md#exit-codes).
+
+## See also
+
+[`import mnemonic`](import/mnemonic.md) · [`list`](list.md) · [`derive`](derive.md) · [`backup`](backup.md) · [Getting started](../guide/getting-started.md)
